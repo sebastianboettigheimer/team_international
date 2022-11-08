@@ -2,3 +2,9 @@ setuptools
 traitlets
 adafruit-circuitpython-servokit
 Jetson.GPIO
+Flask
+python-socketio
+uvicorn
+fastapi
+fastapi-socketio
+eventlet

@@ -1,4 +1,4 @@
-#!/home/jetson/team3/remote_control/venv/bin/python3.10
+#!/home/jetson/team3/team_international/remote_control/venv/bin/python3.10
 
 """Simple Python serial terminal
 """
