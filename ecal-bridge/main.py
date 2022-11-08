@@ -1,17 +1,27 @@
 import sys
 import time
-import requests
 
 import ecal.core.core as ecal_core
 from ecal.core.subscriber import StringSubscriber
 from ecal.core.publisher import StringPublisher
+import socketio
 
 from protobuf import VehicleDynamics_pb2, SurroundViewImage_pb2, Brake_pb2, HMICanKeyboard_pb2, W3Lightbar_pb2
 
 light_pub: StringPublisher
+sio: socketio.Client
+multiplier: float = 0.1
+direction: int = -1
 
-RC_IP = "10.52.204.19"
-RC_PORT = 8000
+RC_IP = "172.20.10.6"
+RC_PORT = 8001
+MAX_SPEED = 0.5
+
+def remote_steering(value: float):
+    sio.emit('steering', dict(value=value))
+
+def remote_throttle(value: float):
+    sio.emit('throttle', dict(value=value))
 
 # steering wheel
 def steering_callback(topic_name, msg, time):
@@ -19,9 +29,8 @@ def steering_callback(topic_name, msg, time):
     dynamics.ParseFromString(msg)
     steering_angle = float(dynamics.signals.steering_wheel_angle)
 
-    print(f'steering angle: {steering_angle}')
-    if not remote_steering(steering_angle):
-        print('error steering')
+    #print(f'steering angle: {steering_angle}')
+    remote_steering(steering_angle)
 
 # brake
 def brake_callback(topic_name, msg, time):
@@ -29,9 +38,12 @@ def brake_callback(topic_name, msg, time):
     brake.ParseFromString(msg)
     brake_applied = bool(brake.signals.is_brake_applied)
 
-    print(f'brake: {brake_applied}')
-    if not remote_throttle(0.0):
-        print('error throttling')
+    #print(f'brake: {brake_applied}')
+    if brake_applied:
+        remote_throttle(direction*multiplier*MAX_SPEED)
+    else:
+        remote_throttle(0.0)
+        #print(f'braking')
 
 # buttons
 def buttons_callback(topic_name, msg, time):
@@ -54,7 +66,7 @@ def buttons_callback(topic_name, msg, time):
     ]
     buttons_str = ",".join([str(e) for e in button_list])
 
-    print(f'buttons: {buttons_str}')
+    #print(f'buttons: {buttons_str}')
 
     light = W3Lightbar_pb2.W3LightbarRequest()
     if button_list[0]:
@@ -67,9 +79,7 @@ def buttons_callback(topic_name, msg, time):
         light.turn_signal_left = True
         light.turn_signal_right = True
         light_pub.send(light.SerializeToString())
-        print('light on')
-        if not remote_throttle(0.3):
-            print('error throttling')
+        #print('light on')
     else:
         light.take_down = True
         light.alley_light_left = False
@@ -80,7 +90,19 @@ def buttons_callback(topic_name, msg, time):
         light.turn_signal_left = False
         light.turn_signal_right = False
         light_pub.send(light.SerializeToString())
-        print('light off')
+        #print('light off')
+
+    if button_list[1]:
+        global multiplier
+        multiplier = multiplier + 0.1
+        if multiplier >= MAX_SPEED:
+            multiplier = 0.1
+        print(f'speed: {multiplier*MAX_SPEED}')
+
+    if button_list[4]:
+        global direction
+        direction = -direction
+        print(f'reversing')
 
 # image
 #def image_callback(topic_name, msg, time):
@@ -94,6 +116,9 @@ def buttons_callback(topic_name, msg, time):
 #    print(f'image: {width}x{height}')
 
 if __name__ == "__main__":
+    sio = socketio.Client()
+    sio.connect(f'http://{RC_IP}:{RC_PORT}')
+
     ecal_core.initialize(sys.argv, "BCX")
     dyn_sub = StringSubscriber("VehicleDynamicsInPb")
     dyn_sub.set_callback(steering_callback)
@@ -110,15 +135,22 @@ if __name__ == "__main__":
             time.sleep(0.005)
     except BaseException as ex:
         ecal_core.finalize()
+        sio.disconnect()
         raise ex
     
     ecal_core.finalize()
+    sio.disconnect()
 
 
-def remote_steering(value: float) -> bool:
-    answer = requests.post(f'http://{RC_IP}:{RC_PORT}/steering', dict(value=value))
-    return answer.status_code == 200
+@sio.event
+def connect():
+    print("socket connected")
 
-def remote_throttle(value: float) -> bool:
-    answer = requests.post(f'http://{RC_IP}:{RC_PORT}/throttle', dict(value=value))
-    return answer.status_code == 200
+@sio.event
+def connect_error(data):
+    print("docket connection failed")
+
+@sio.event
+def disconnect():
+    print("socket disconnected")
+
