@@ -1,0 +1,4 @@
+setuptools
+traitlets
+adafruit-circuitpython-servokit
+Jetson.GPIO
