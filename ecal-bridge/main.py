@@ -1,5 +1,6 @@
 import sys
 import time
+import requests
 
 import ecal.core.core as ecal_core
 from ecal.core.subscriber import StringSubscriber
@@ -9,13 +10,18 @@ from protobuf import VehicleDynamics_pb2, SurroundViewImage_pb2, Brake_pb2, HMIC
 
 light_pub: StringPublisher
 
+RC_IP = "10.52.204.19"
+RC_PORT = 8000
+
 # steering wheel
 def steering_callback(topic_name, msg, time):
     dynamics = VehicleDynamics_pb2.VehicleDynamics()
     dynamics.ParseFromString(msg)
     steering_angle = float(dynamics.signals.steering_wheel_angle)
 
-    #print(f'steering angle: {steering_angle}')
+    print(f'steering angle: {steering_angle}')
+    if not remote_steering(steering_angle):
+        print('error steering')
 
 # brake
 def brake_callback(topic_name, msg, time):
@@ -23,7 +29,9 @@ def brake_callback(topic_name, msg, time):
     brake.ParseFromString(msg)
     brake_applied = bool(brake.signals.is_brake_applied)
 
-    #print(f'brake: {brake_applied}')
+    print(f'brake: {brake_applied}')
+    if not remote_throttle(0.0):
+        print('error throttling')
 
 # buttons
 def buttons_callback(topic_name, msg, time):
@@ -60,6 +68,8 @@ def buttons_callback(topic_name, msg, time):
         light.turn_signal_right = True
         light_pub.send(light.SerializeToString())
         print('light on')
+        if not remote_throttle(0.3):
+            print('error throttling')
     else:
         light.take_down = True
         light.alley_light_left = False
@@ -103,3 +113,12 @@ if __name__ == "__main__":
         raise ex
     
     ecal_core.finalize()
+
+
+def remote_steering(value: float) -> bool:
+    answer = requests.post(f'http://{RC_IP}:{RC_PORT}/steering', dict(value=value))
+    return answer.status_code == 200
+
+def remote_throttle(value: float) -> bool:
+    answer = requests.post(f'http://{RC_IP}:{RC_PORT}/throttle', dict(value=value))
+    return answer.status_code == 200
