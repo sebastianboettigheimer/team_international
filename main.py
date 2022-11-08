@@ -3,8 +3,11 @@ import time
 
 import ecal.core.core as ecal_core
 from ecal.core.subscriber import StringSubscriber
+from ecal.core.publisher import StringPublisher
 
-from protobuf import VehicleDynamics_pb2, SurroundViewImage_pb2, Brake_pb2, HMICanKeyboard_pb2
+from protobuf import VehicleDynamics_pb2, SurroundViewImage_pb2, Brake_pb2, HMICanKeyboard_pb2, W3Lightbar_pb2
+
+light_pub: StringPublisher
 
 # steering wheel
 def steering_callback(topic_name, msg, time):
@@ -12,7 +15,7 @@ def steering_callback(topic_name, msg, time):
     dynamics.ParseFromString(msg)
     steering_angle = float(dynamics.signals.steering_wheel_angle)
 
-    print(f'steering angle: {steering_angle}')
+    #print(f'steering angle: {steering_angle}')
 
 # brake
 def brake_callback(topic_name, msg, time):
@@ -20,7 +23,7 @@ def brake_callback(topic_name, msg, time):
     brake.ParseFromString(msg)
     brake_applied = bool(brake.signals.is_brake_applied)
 
-    print(f'brake: {brake_applied}')
+    #print(f'brake: {brake_applied}')
 
 # buttons
 def buttons_callback(topic_name, msg, time):
@@ -45,15 +48,39 @@ def buttons_callback(topic_name, msg, time):
 
     print(f'buttons: {buttons_str}')
 
+    light = W3Lightbar_pb2.W3LightbarRequest()
+    if button_list[0]:
+        light.take_down = False
+        light.alley_light_left = True
+        light.alley_light_right = True
+        light.red_warning_light = True
+        light.three_sixty_degree_colour_2 = True
+        light.front_colour_2 = True
+        light.turn_signal_left = True
+        light.turn_signal_right = True
+        light_pub.send(light.SerializeToString())
+        print('light on')
+    else:
+        light.take_down = True
+        light.alley_light_left = False
+        light.alley_light_right = False
+        light.red_warning_light = False
+        light.three_sixty_degree_colour_2 = False
+        light.front_colour_2 = False
+        light.turn_signal_left = False
+        light.turn_signal_right = False
+        light_pub.send(light.SerializeToString())
+        print('light off')
+
 # image
 #def image_callback(topic_name, msg, time):
 #    image = SurroundViewImage_pb2.SurroundViewImage()
 #    image.ParseFromString(msg)
-
+#
 #    image_bytes = image.data.imageData
 #    width = image.data.width
 #    height = image.data.height
-
+#
 #    print(f'image: {width}x{height}')
 
 if __name__ == "__main__":
@@ -64,9 +91,9 @@ if __name__ == "__main__":
     brake_sub.set_callback(brake_callback)
     button_sub = StringSubscriber("HmiCanKeyboardStatePb")
     button_sub.set_callback(buttons_callback)
-    
     #img_sub = StringSubscriber("SvcImageFrontRgbPb")
     #img_sub.set_callback(image_callback)
+    light_pub = StringPublisher("W3LightbarRequestPb")
     
     try:
         while ecal_core.ok():
