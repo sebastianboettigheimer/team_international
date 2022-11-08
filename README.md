@@ -5,10 +5,13 @@ https://github.com/eclipse-ecal/ecal
 https://eclipse-ecal.github.io/ecal/getting_started/hello_world_python.html
 
 
+
 # Setup
+- unzip your measurement ZIP
+- test
 ```
-python -m venv venv
 source ./venv/bin/activate
-pip install -r requirements.txt
 python hello_world_pub.py
 ```
+- play measurement with `./play.sh`
+- run program with `./run.sh`

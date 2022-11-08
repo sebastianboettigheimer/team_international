@@ -11,8 +11,8 @@ from google.protobuf import symbol_database as _symbol_database
 _sym_db = _symbol_database.Default()
 
 
-import header_pb2 as header__pb2
-from SensorNearData import SensorStates_pb2 as SensorNearData_dot_SensorStates__pb2
+import protobuf.header_pb2 as header__pb2
+import protobuf.SensorStates_pb2 as SensorNearData_dot_SensorStates__pb2
 
 
 DESCRIPTOR = _descriptor.FileDescriptor(
